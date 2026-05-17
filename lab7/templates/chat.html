@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>WebSocket Chat</title>
+</head>
+<body>
+    <h1>Чат</h1>
+    <input type="text" id="username" placeholder="Имя">
+    <button onclick="connect()">Войти</button>
+    
+    <div id="chat" style="display:none">
+        <input type="text" id="messageInput" autocomplete="off" placeholder="Введите сообщение">
+        <button onclick="send()">Отправить</button>
+        <ul id="messages"></ul>
+    </div>
+
+    <script>
+        let ws;
+        let currentUser;
+
+        function formatTime(ts) {
+            let date = new Date(ts);
+            return date.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit', second: '2-digit'});
+        }
+
+        function connect() {
+            currentUser = document.getElementById("username").value;
+            ws = new WebSocket(`ws://localhost:8000/ws?username=${currentUser}`);
+            ws.onopen = () => document.getElementById("chat").style.display = "block";
+            ws.onmessage = (e) => {
+                let msg = document.createElement("li");
+                let data = JSON.parse(e.data);
+                
+                if (data.type === "error") {
+                    msg.style.color = "red";
+                    msg.textContent = `[${formatTime(data.ts)}] ❌ ${data.detail}`;
+                } else if (data.type === "private") {
+                    msg.style.color = "purple";
+                    if (data.from === currentUser) {
+                        msg.textContent = `[${formatTime(data.ts)}] Вы → ${data.to}: ${data.text}`;
+                    } else {
+                        msg.textContent = `[${formatTime(data.ts)}] ${data.from} → Вам: ${data.text}`;
+                    }
+                } else {
+                    msg.textContent = `[${formatTime(data.ts)}] ${data.user}: ${data.text}`;
+                }
+                
+                document.getElementById("messages").appendChild(msg);
+            };
+        }
+
+        function send() {
+            let input = document.getElementById("messageInput");
+            if (input.value.trim()) {
+                ws.send(JSON.stringify({text: input.value}));
+                input.value = "";
+            }
+        }
+    </script>
+</body>
+</html>
